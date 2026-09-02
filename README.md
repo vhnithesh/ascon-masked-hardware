@@ -30,15 +30,15 @@ This repository includes the complete RTL design, official NIST Known Answer Tes
 Ascon-128 is an **Authenticated Encryption with Associated Data (AEAD)** algorithm based on a monkey duplex Sponge construction. It processes messages in 64-bit rate blocks using an internal **320-bit permutation state** $S = (x_0, x_1, x_2, x_3, x_4)$.
 
 ```
-   ┌─────────────────────────────────────────────────────────────────────────────┐
-   │                               320-bit State S                               │
+   ┌─────────────────────────────────────────────────────────────────────────────────────┐
+   │                               320-bit State S                                       │
    │  ┌───────────────┬───────────────┬───────────────┬───────────────┬───────────────┐  │
    │  │   Word x0     │   Word x1     │   Word x2     │   Word x3     │   Word x4     │  │
    │  │   (64-bit)    │   (64-bit)    │   (64-bit)    │   (64-bit)    │   (64-bit)    │  │
    │  ├───────────────┴───────────────┴───────────────┴───────────────┴───────────────┤  │
-   │  │  Rate (r=64)  │                    Capacity (c=256)                   │  │
-   │  └───────────────┴───────────────────────────────────────────────────────┘  │
-   └─────────────────────────────────────────────────────────────────────────────┘
+   │  │  Rate (r=64)  │                    Capacity (c=256)                           │  │
+   │  └───────────────┴───────────────────────────────────────────────────────────────┘  │
+   └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1. The Core Round Permutation ($p = p_L \circ p_S \circ p_C$)
@@ -192,27 +192,9 @@ All configurations were synthesized in **AMD Xilinx Vivado 2024.2** targeting th
 
 | Configuration | Sharing Architecture | Shares | Slice LUTs | Slice Registers (FFs) | Area Overhead | Worst Negative Slack (WNS) | Maximum Frequency ($F_{max}$) | Timing Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **$D = 0$** | **Unmasked Baseline** | **1** | **1,402** (2.21%) | **1,165** (0.92%) | **1.00$\times$** | **+3.729 ns** | **159.46 MHz** | **MET (0 Violations)** |
-| **$D = 1$** | **1st-Order Masked** | **3** | **5,678** (8.96%) | **3,424** (2.70%) | **4.05$\times$** | **+3.095 ns** | **144.82 MHz** | **MET (0 Violations)** |
-| **$D = 2$** | **2nd-Order Masked** | **4** | **9,180** (14.48%) | **4,569** (3.60%) | **6.55$\times$** | **+2.486 ns** | **133.08 MHz** | **MET (0 Violations)** |
-
-```latex
-% LaTeX Table for Publication
-\begin{table}[htbp]
-\centering
-\caption{FPGA Resource Utilization and Timing Comparison on Artix-7 (xc7a100tcsg324-1)}
-\label{tab:fpga_synth}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{Configuration} & \textbf{Shares} & \textbf{Slice LUTs} & \textbf{Slice FFs} & \textbf{Area Overhead} & \textbf{WNS (ns)} & \textbf{$F_{max}$ (MHz)} \\
-\midrule
-Unmasked ($D=0$)       & 1 & 1,402 (2.21\%)  & 1,165 (0.92\%) & 1.00$\times$ & +3.729 & 159.5 \\
-1st-Order ($D=1$)      & 3 & 5,678 (8.96\%)  & 3,424 (2.70\%) & 4.05$\times$ & +3.095 & 144.8 \\
-2nd-Order ($D=2$)      & 4 & 9,180 (14.48\%) & 4,569 (3.60\%) & 6.55$\times$ & +2.486 & 133.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-```
+| **D = 0** | **Unmasked Baseline** | **1** | **1,402** (2.21%) | **1,165** (0.92%) | **1.00 times** | **+3.729 ns** | **159.46 MHz** | **MET (0 Violations)** |
+| **D = 1** | **1st-Order Masked** | **3** | **5,678** (8.96%) | **3,424** (2.70%) | **4.05 times** | **+3.095 ns** | **144.82 MHz** | **MET (0 Violations)** |
+| **D = 2** | **2nd-Order Masked** | **4** | **9,180** (14.48%) | **4,569** (3.60%) | **6.55 times** | **+2.486 ns** | **133.08 MHz** | **MET (0 Violations)** |
 
 ---
 
