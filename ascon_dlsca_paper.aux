@@ -1,0 +1,32 @@
+\relax 
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {II}Target Hardware Architecture and Threat Model}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Bit-Sliced Ascon-128 Structure}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-B}}FPGA Implementation and Leakage Modeling}{1}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces FPGA Resource Utilization on Xilinx Artix-7 (xc7a100tcsg324-1).}}{2}{}\protected@file@percent }
+\newlabel{tab:fpga_util}{{I}{2}{}{table.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces (a) Average switching power profile across 50 clock cycles for $D = 0, 1, 2$. (b) Cycle-wise trace variance distribution.}}{2}{}\protected@file@percent }
+\newlabel{fig:traces}{{1}{2}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}Profiling Methodologies}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Method A: Higher-Order Product CPA}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Method B: Deep Learning Multi-Point Profiling}{2}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces (a) 1st-order CPA comparison between $D=0$ and $D=1$. (b) Bivariate 2nd-order correlation heatmap on masked $D=1$.}}{2}{}\protected@file@percent }
+\newlabel{fig:bivariate}{{2}{2}{}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces (a) Theoretical binomial class imbalance for 5-bit S-box HW. (b) Normalized confusion matrix of ResNet-1D + Focal Loss on $D=1$.}}{2}{}\protected@file@percent }
+\newlabel{fig:confusion}{{3}{2}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Method C: Single-Bit vs. Multi-Bit SNR Trade-off}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Mitigating Binomial Imbalance with Focal Loss}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}Experimental Results and Discussion}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Key Ranking Convergence}{2}{}\protected@file@percent }
+\bibcite{ascon_spec}{1}
+\bibcite{dl_sca_maghrebi}{2}
+\bibcite{one_for_all_ascon}{3}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Comprehensive Performance and Sub-Key Recovery Comparison on Masked Ascon-128.}}{3}{}\protected@file@percent }
+\newlabel{tab:results}{{II}{3}{}{table.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Validation accuracy and Top-1 sub-key recovery rate across neural network architectures for $D=1$ and $D=2$.}}{3}{}\protected@file@percent }
+\newlabel{fig:arch_bench}{{4}{3}{}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces (a) Guessing Entropy and (b) Empirical Success Rate as a function of attack traces.}}{3}{}\protected@file@percent }
+\newlabel{fig:ge_sr}{{5}{3}{}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Conclusion}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{3}{}\protected@file@percent }
+\gdef \@abspage@last{3}
