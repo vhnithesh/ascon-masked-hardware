@@ -16,12 +16,95 @@ This repository includes the complete RTL design, official NIST Known Answer Tes
 
 - **Standard Compliance**: 100% compliant with official **NIST SP 800-232 / Ascon v1.2** specifications (including post-initialization 128-bit key absorption).
 - **Higher-Order Threshold Masking**:
-  - **$D = 0$**: 1 share unmasked baseline core ($1,402$ LUTs, $159.5$ MHz).
+  - **$D = 0$**: 1-share unmasked baseline core ($1,402$ LUTs, $159.5$ MHz).
   - **$D = 1$**: 3-share non-complete threshold S-box with fresh randomness injection ($5,678$ LUTs, $144.8$ MHz).
   - **$D = 2$**: 4-share 2nd-order threshold S-box with full glitch and probe protection ($9,180$ LUTs, $133.0$ MHz).
 - **Parameterized Top Wrapper**: Single top-level interface (`ascon128_top.v`) allowing dynamic selection of `ORDER = 0, 1, 2` with identical I/O footprint.
 - **Rigorous Verification**: Official NIST Known Answer Tests (KAT) and 100-vector automated randomized testbenches running in AMD Vivado `xsim` (**100% bit-exact PASS** on both authenticated encryption and decryption).
-- **DL-SCA Dataset & Profiler**: Large-scale 30,000-trace simulated power dataset (`ascon_30k.h5` / `ascon_30k.npz`) and 1D-CNN profiling framework (PyTorch) matching the [`Deadly-pro/ascon-dlsca`](https://github.com/Deadly-pro/ascon-dlsca) evaluation standard.
+- **DL-SCA Dataset & Profiler**: Large-scale 30,000-trace simulated power dataset (`ascon_30k.h5` / `ascon_30k.npz`) and 1D-CNN profiling framework (PyTorch) for side-channel leakage benchmarking.
+
+---
+
+## 🏗️ Hardware Architecture & State Organization
+
+Ascon-128 operates on a **320-bit state** $S$ divided into five 64-bit words:
+$$S = (x_0, x_1, x_2, x_3, x_4)$$
+- **Rate ($r$):** 64 bits ($x_0$)
+- **Capacity ($c$):** 256 bits ($x_1, x_2, x_3, x_4$)
+- **Key ($k$):** 128 bits ($K_0 \parallel K_1$)
+- **Nonce ($n$):** 128 bits ($N_0 \parallel N_1$)
+- **Initialization Vector ($IV$):** `0x80400c0600000000`
+
+```
++-----------------------------------------------------------------------------------------------------+
+|                                          ascon128_top.v                                             |
+|                                                                                                     |
+|  [ORDER = 0] (Unmasked)            [ORDER = 1] (1st-Order Masked)      [ORDER = 2] (2nd-Order)      |
+|  - 1 Share State (320b)            - 3 Share States (960b)             - 4 Share States (1280b)     |
+|  - ascon_sbox_d0.v                 - ascon_sbox_d1.v                   - ascon_sbox_d2.v            |
+|  - 0 Randomness Bits               - Fresh Randomness (r0..r6)         - Fresh Randomness (r0..r7)  |
+|  - 1-cycle Permutation Loop        - 1-cycle Permutation Loop          - 1-cycle Permutation Loop   |
++-----------------------------------------------------------------------------------------------------+
+```
+
+### The 4 Operational Phases
+
+1. **Initialization**:
+   - Initial state is loaded with $S = (IV, K_0, K_1, N_0, N_1)$.
+   - 12-round permutation $p^{12}$ is computed.
+   - **128-bit Key Addition:** $S \leftarrow S \oplus (0^{192} \parallel K) = (x_0, x_1, x_2, x_3 \oplus K_0, x_4 \oplus K_1)$.
+2. **Associated Data Processing** (if $l > 0$):
+   - Padded AD blocks $A_i$ are absorbed into $x_0$: $x_0 \leftarrow x_0 \oplus A_i$, followed by 6-round permutation $p^6$.
+   - **Domain Separation:** 1-bit XOR into $x_4$ ($S \leftarrow S \oplus 1$).
+3. **Plaintext / Ciphertext Processing**:
+   - Plaintext blocks $P_i$ are encrypted: $C_i = x_0 \oplus P_i$, state updated with $x_0 \leftarrow C_i$, and permuted with $p^6$.
+4. **Finalization**:
+   - Key addition: $S \leftarrow S \oplus (0^{64} \parallel K \parallel 0^{128}) = (x_0, x_1 \oplus K_0, x_2 \oplus K_1, x_3, x_4)$.
+   - 12-round permutation $p^{12}$ is executed.
+   - **Tag Extraction:** $T = (x_3 \oplus K_0, x_4 \oplus K_1)$.
+
+---
+
+## 🛡️ Higher-Order Threshold Masking ($D = 1, D = 2$)
+
+In standard CMOS circuits, dynamic power consumption is proportional to signal transitions (Hamming Distance). Masking splits every sensitive variable $x$ into $s$ randomized shares such that:
+$$x = \bigoplus_{i=0}^{s-1} x^{(i)}$$
+
+```
+UNMASKED (D = 0, 1 Share):
+  x ──> [ S-box ] ──> y                      (Power directly leaks HW(y))
+
+1st-ORDER THRESHOLD MASKING (D = 1, 3 Shares):
+  x^(0) ──┐
+  x^(1) ──┼──> [ Non-Complete S-box Shares ] ──> y^(0), y^(1), y^(2)
+  x^(2) ──┘           + Fresh Randomness (r0..r6)
+              (Any 2 shares are statistically independent of x)
+
+2nd-ORDER THRESHOLD MASKING (D = 2, 4 Shares):
+  x^(0) ──┐
+  x^(1) ──┼──> [ 2nd-Order S-box Shares ]    ──> y^(0), y^(1), y^(2), y^(3)
+  x^(2) ──┤           + Fresh Randomness (r0..r7)
+  x^(3) ──┘   (Any 3 shares are statistically independent of x)
+```
+
+### Threshold Implementation (TI) Guarantees
+
+1. **Correctness**:
+   $$\bigoplus_{i=0}^{s-1} S_i\left(x^{(0)}, \dots, x^{(s-1)}\right) \equiv S\left(\bigoplus_{i=0}^{s-1} x^{(i)}\right)$$
+   *(Verified across 1,000 randomized unit test vectors in Vivado with 0 errors).*
+
+2. **Non-Completeness**:
+   - **For $D = 1$ (3 shares):** Each coordinate function $f_i$ uses at most 2 input shares (e.g., share 0 depends only on shares 1 & 2). 
+   - **For $D = 2$ (4 shares):** Each coordinate function $f_i$ depends on at most 3 input shares.
+   - **Glitch Protection:** Because no single logic gate or LUT has access to all shares simultaneously, transient combinatorial glitches *cannot* recombine the unmasked secret in hardware.
+
+3. **Uniformity & Fresh Randomness Re-Masking**:
+   - Non-linear cross-multiplications produce output shares that can exhibit higher-order non-uniformity across rounds.
+   - Dedicated fresh randomness lines ($r_0 \dots r_6$ for $D=1$, $r_0 \dots r_7$ for $D=2$) re-randomize intermediate algebraic terms every clock cycle to preserve uniform probability distribution across all 12 rounds.
+
+4. **Linear Diffusion & Key Sharing**:
+   - The linear diffusion layer ($\Sigma_0 \dots \Sigma_4$) and affine round constant additions are linear operations ($L(a \oplus b) = L(a) \oplus L(b)$) and are applied independently to each share without cross-talk.
+   - Keys and nonces are split into independent shares upon entry: $K = K^{(0)} \oplus K^{(1)} \oplus K^{(2)}$, completely eliminating unmasked key registers.
 
 ---
 
@@ -146,7 +229,6 @@ uv run --with numpy,scipy python scripts/evaluate_security.py
 
 - **NIST SP 800-232**: *Ascon-Based Lightweight Cryptography Standard for Authenticated Encryption with Associated Data (AEAD) and Hashing*.
 - **Ascon Team**: Christoph Dobraunig, Maria Eichlseder, Florian Mendel, Martin Schläffer ([ascon.iaik.tugraz.at](https://ascon.iaik.tugraz.at/)).
-- **DL-SCA Pipeline Reference**: [`Deadly-pro/ascon-dlsca`](https://github.com/Deadly-pro/ascon-dlsca) (Prajwal R., PES University).
 
 ---
 
