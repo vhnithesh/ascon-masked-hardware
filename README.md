@@ -25,43 +25,85 @@ This repository includes the complete RTL design, official NIST Known Answer Tes
 
 ---
 
-## 🏗️ Hardware Architecture & State Organization
+## 📖 How Ascon-128 Works
 
-Ascon-128 operates on a **320-bit state** $S$ divided into five 64-bit words:
-$$S = (x_0, x_1, x_2, x_3, x_4)$$
-- **Rate ($r$):** 64 bits ($x_0$)
-- **Capacity ($c$):** 256 bits ($x_1, x_2, x_3, x_4$)
-- **Key ($k$):** 128 bits ($K_0 \parallel K_1$)
-- **Nonce ($n$):** 128 bits ($N_0 \parallel N_1$)
-- **Initialization Vector ($IV$):** `0x80400c0600000000`
+Ascon-128 is an **Authenticated Encryption with Associated Data (AEAD)** algorithm based on a monkey duplex Sponge construction. It processes messages in 64-bit rate blocks using an internal **320-bit permutation state** $S = (x_0, x_1, x_2, x_3, x_4)$.
 
 ```
-+-----------------------------------------------------------------------------------------------------+
-|                                          ascon128_top.v                                             |
-|                                                                                                     |
-|  [ORDER = 0] (Unmasked)            [ORDER = 1] (1st-Order Masked)      [ORDER = 2] (2nd-Order)      |
-|  - 1 Share State (320b)            - 3 Share States (960b)             - 4 Share States (1280b)     |
-|  - ascon_sbox_d0.v                 - ascon_sbox_d1.v                   - ascon_sbox_d2.v            |
-|  - 0 Randomness Bits               - Fresh Randomness (r0..r6)         - Fresh Randomness (r0..r7)  |
-|  - 1-cycle Permutation Loop        - 1-cycle Permutation Loop          - 1-cycle Permutation Loop   |
-+-----------------------------------------------------------------------------------------------------+
+   ┌─────────────────────────────────────────────────────────────────────────────┐
+   │                               320-bit State S                               │
+   │  ┌───────────────┬───────────────┬───────────────┬───────────────┬───────────────┐  │
+   │  │   Word x0     │   Word x1     │   Word x2     │   Word x3     │   Word x4     │  │
+   │  │   (64-bit)    │   (64-bit)    │   (64-bit)    │   (64-bit)    │   (64-bit)    │  │
+   │  ├───────────────┴───────────────┴───────────────┴───────────────┴───────────────┤  │
+   │  │  Rate (r=64)  │                    Capacity (c=256)                   │  │
+   │  └───────────────┴───────────────────────────────────────────────────────┘  │
+   └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### The 4 Operational Phases
+### 1. The Core Round Permutation ($p = p_L \circ p_S \circ p_C$)
+
+Each round of the permutation consists of three successive transformation layers:
+
+#### A. Constant Addition Layer ($p_C$)
+In each round $i$, an 8-bit round constant $c_r$ is XORed into register word $x_2$ to prevent symmetry and slide attacks:
+$$x_2 \leftarrow x_2 \oplus c_r$$
+- **12-Round Constants ($p^{12}$):** `0xf0`, `0xe1`, `0xd2`, `0xc3`, `0xb4`, `0xa5`, `0x96`, `0x87`, `0x78`, `0x69`, `0x5a`, `0x4b`
+- **6-Round Constants ($p^6$):** `0x96`, `0x87`, `0x78`, `0x69`, `0x5a`, `0x4b`
+
+#### B. Non-Linear Substitution Layer ($p_S$)
+The substitution layer applies **64 parallel 5-bit S-boxes** in a bit-slice fashion across words $(x_0, x_1, x_2, x_3, x_4)$. For every bit column $j \in [0, 63]$:
+
+$$\begin{aligned}
+x_0 &\leftarrow x_0 \oplus x_4; \quad x_4 \leftarrow x_4 \oplus x_3; \quad x_2 \leftarrow x_2 \oplus x_1 \\
+t_0 &= \neg x_0 \land x_1; \quad t_1 = \neg x_1 \land x_2; \quad t_2 = \neg x_2 \land x_3 \\
+t_3 &= \neg x_3 \land x_4; \quad t_4 = \neg x_4 \land x_0 \\
+y_0 &= x_0 \oplus t_1; \quad y_1 = x_1 \oplus t_2; \quad y_2 = x_2 \oplus t_3 \\
+y_3 &= x_3 \oplus t_4; \quad y_4 = x_4 \oplus t_0 \\
+y_1 &\leftarrow y_1 \oplus y_0; \quad y_0 \leftarrow y_0 \oplus y_4; \quad y_3 \leftarrow y_3 \oplus y_2; \quad y_2 \leftarrow \neg y_2
+\end{aligned}$$
+
+- **Properties:** Algebraic degree 2, optimal differential and linear branch number, and highly efficient in hardware.
+
+#### C. Linear Diffusion Layer ($p_L$)
+The linear layer provides fast 64-bit diffusion within each word independently using circular right rotations ($\ggg$):
+$$\begin{aligned}
+x_0 &\leftarrow \Sigma_0(x_0) = x_0 \oplus (x_0 \ggg 19) \oplus (x_0 \ggg 28) \\
+x_1 &\leftarrow \Sigma_1(x_1) = x_1 \oplus (x_1 \ggg 61) \oplus (x_1 \ggg 39) \\
+x_2 &\leftarrow \Sigma_2(x_2) = x_2 \oplus (x_2 \ggg 1) \oplus (x_2 \ggg 6) \\
+x_3 &\leftarrow \Sigma_3(x_3) = x_3 \oplus (x_3 \ggg 10) \oplus (x_3 \ggg 17) \\
+x_4 &\leftarrow \Sigma_4(x_4) = x_4 \oplus (x_4 \ggg 7) \oplus (x_4 \ggg 41)
+\end{aligned}$$
+
+---
+
+### 2. The 4 AEAD Operational Phases
+
+```
+   ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+   │ 1. INITIALIZATION│ ──> │ 2. ASSOCIATED    │ ──> │ 3. PLAINTEXT     │ ──> │ 4. FINALIZATION  │
+   │                  │     │    DATA (AD)     │     │    PROCESSING    │     │                  │
+   │  S = IV||K||N    │     │  x0 ^= A_i       │     │  C_i = x0 ^ P_i  │     │  S ^= 0||K||0    │
+   │  S = p12(S)      │     │  S = p6(S)       │     │  x0 = C_i        │     │  S = p12(S)      │
+   │  S ^= 0||K       │     │  x4 ^= 1 (Sep)   │     │  S = p6(S)       │     │  Tag = S[127:0]^K│
+   └──────────────────┘     └──────────────────┘     └──────────────────┘     └──────────────────┘
+```
 
 1. **Initialization**:
-   - Initial state is loaded with $S = (IV, K_0, K_1, N_0, N_1)$.
-   - 12-round permutation $p^{12}$ is computed.
-   - **128-bit Key Addition:** $S \leftarrow S \oplus (0^{192} \parallel K) = (x_0, x_1, x_2, x_3 \oplus K_0, x_4 \oplus K_1)$.
-2. **Associated Data Processing** (if $l > 0$):
-   - Padded AD blocks $A_i$ are absorbed into $x_0$: $x_0 \leftarrow x_0 \oplus A_i$, followed by 6-round permutation $p^6$.
-   - **Domain Separation:** 1-bit XOR into $x_4$ ($S \leftarrow S \oplus 1$).
-3. **Plaintext / Ciphertext Processing**:
-   - Plaintext blocks $P_i$ are encrypted: $C_i = x_0 \oplus P_i$, state updated with $x_0 \leftarrow C_i$, and permuted with $p^6$.
-4. **Finalization**:
-   - Key addition: $S \leftarrow S \oplus (0^{64} \parallel K \parallel 0^{128}) = (x_0, x_1 \oplus K_0, x_2 \oplus K_1, x_3, x_4)$.
+   - State loaded: $S = (IV \parallel K_0 \parallel K_1 \parallel N_0 \parallel N_1)$ where $IV = \text{0x80400c0600000000}$.
    - 12-round permutation $p^{12}$ is executed.
-   - **Tag Extraction:** $T = (x_3 \oplus K_0, x_4 \oplus K_1)$.
+   - **Post-Initialization Key XOR:** $S \leftarrow S \oplus (0^{192} \parallel K) = (x_0, x_1, x_2, x_3 \oplus K_0, x_4 \oplus K_1)$.
+2. **Associated Data Processing** (if length $l > 0$):
+   - Padded AD blocks $A_i$ (64 bits each) are XORed into rate: $x_0 \leftarrow x_0 \oplus A_i$, followed by 6-round permutation $p^6$.
+   - **Domain Separation:** 1-bit XOR into $x_4$ ($S \leftarrow S \oplus 1$).
+3. **Plaintext / Ciphertext Processing** (if length $y > 0$):
+   - Padded plaintext blocks $P_i$ are encrypted: $C_i = x_0 \oplus P_i$.
+   - State updated: $x_0 \leftarrow C_i$ and transformed via $p^6$.
+4. **Finalization & Authentication**:
+   - Key injection: $S \leftarrow S \oplus (0^{64} \parallel K \parallel 0^{128}) = (x_0, x_1 \oplus K_0, x_2 \oplus K_1, x_3, x_4)$.
+   - 12-round permutation $p^{12}$ is executed.
+   - **Tag Generation:** $T = (x_3 \oplus K_0, x_4 \oplus K_1)$.
+   - **Decryption Verification:** Plaintext is only authenticated if $T_{\text{computed}} == T_{\text{received}}$.
 
 ---
 
