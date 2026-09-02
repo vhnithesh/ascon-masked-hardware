@@ -5,7 +5,7 @@
 //                ORDER = 0 : Unmasked (1 share)
 //                ORDER = 1 : 1st-Order Masked (3 shares)
 //                ORDER = 2 : 2nd-Order Masked (4 shares)
-// Reference: https://github.com/aneeshkandi14/ascon-hw-public
+// Standard: NIST SP 800-232 / Ascon v1.2
 // ============================================================================
 
 `timescale 1ns / 1ps

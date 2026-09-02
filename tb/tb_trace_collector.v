@@ -1,9 +1,8 @@
 // ============================================================================
 // File: tb_trace_collector.v
-// Description: Vivado Trace Collector for Ascon-128 (D = 0, D = 1, D = 2)
-//              Generates synchronized simulated power traces (Hamming Distance
-//              and Hamming Weight leakage model) across clock cycles for CNN training.
-// Reference: https://github.com/Deadly-pro/ascon-dlsca
+// Description: Cycle-accurate Power Trace Collector for Ascon-128 (D=0, 1, 2)
+//              Generates synchronized simulated power traces across clock cycles
+// Standard: NIST SP 800-232 / Ascon v1.2
 // ============================================================================
 
 `timescale 1ns / 1ps

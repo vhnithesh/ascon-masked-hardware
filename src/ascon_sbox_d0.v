@@ -1,7 +1,7 @@
 // ============================================================================
 // File: ascon_sbox_d0.v
 // Description: Unmasked Ascon S-box for Order D = 0 (1 share)
-// Reference: Ascon v1.2 Specification / https://github.com/aneeshkandi14/ascon-hw-public
+// Standard: NIST SP 800-232 / Ascon v1.2 Specification
 // ============================================================================
 
 `timescale 1ns / 1ps

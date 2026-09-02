@@ -3,7 +3,7 @@
 // Description: Masked Ascon S-box for Order D = 2 (4 shares)
 //              Implements 2nd-order Threshold Implementation (TI) satisfying
 //              Non-completeness and Uniformity properties.
-// Reference: https://github.com/aneeshkandi14/ascon-hw-public
+// Standard: NIST SP 800-232 / Ascon v1.2
 // ============================================================================
 
 `timescale 1ns / 1ps
